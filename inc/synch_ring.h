@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <stdio.h>
+#include <stdbool.h>
 
 typedef struct synch_ring synch_ring;
 

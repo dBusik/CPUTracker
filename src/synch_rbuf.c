@@ -69,7 +69,7 @@ char* sring_pop_front(synch_ring* sr) {
 }
 
 void sring_print(synch_ring const* restrict sr, char const delim,
-                 FILE* restrict outstream)
+                    FILE* restrict outstream)
 {
     if (sr) {
         ring_print(sr->buffer, delim, outstream);
