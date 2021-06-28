@@ -1,4 +1,4 @@
-#include "utils.h"
+#include "stat_utils.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,7 +14,8 @@ static bool str_begins_with(char const* str, char const* match_str) {
 
 /* 
     Returns 0 upon unsuccessful read of file; otherwise
-    X - number of lines read, being the number_of_cores + 1 
+    X - number of lines read, being the number_of_cores + 1.
+    buf_len stores the number of symbols read;
 */
 size_t util_read_statfile(char** restrict buffer, 
                         size_t* restrict buf_len) 
@@ -107,7 +108,7 @@ static char** util_str_split(char* restrict data, char const delimiter,
     return result;
 }
 
-static char* str_concat(char const* const str1, char const* const str2) {
+static char* util_str_concat(char const* const str1, char const* const str2) {
     const size_t s1_len = strlen(str1);
     const size_t s2_len = strlen(str2);
 
@@ -121,8 +122,8 @@ static char* str_concat(char const* const str1, char const* const str2) {
     return res;
 }
 
-static size_t* util_strnums(size_t len, char const line[],
-                                size_t* restrict el_num, int const base) 
+size_t* util_strnums(size_t len, char const line[],
+                        size_t* restrict el_num, int const base) 
 {
     size_t* result = 0;
     size_t n = 0;
@@ -145,14 +146,14 @@ static size_t* util_strnums(size_t len, char const line[],
     return result;
 }
 
-char* util_analyze_stat(char* restrict old_data, char* restrict new_data, size_t const n_lines) {
+char* util_analyze_stat(char* restrict old_data, char* restrict new_data) {
     char* calc_cpu_data = strdup("");
-    size_t real_lines = n_lines;
-    char** old_cpu_data = util_str_split(old_data, '\n', &real_lines);
-    char** new_cpu_data = util_str_split(new_data, '\n', &real_lines);
+    size_t lines_num = 0;
+    char** old_cpu_data = util_str_split(old_data, '\n', &lines_num);
+    char** new_cpu_data = util_str_split(new_data, '\n', &lines_num);
 
          
-    if (old_cpu_data && new_cpu_data && real_lines == n_lines) {
+    if (old_cpu_data && new_cpu_data) {
         /*
         printf("Old_line:\n");
         for (size_t i = 0; i < n_lines; ++i) {
@@ -182,7 +183,7 @@ char* util_analyze_stat(char* restrict old_data, char* restrict new_data, size_t
         size_t num_count = 0;
         char small_buff[12] = { 0, };
 
-        for (size_t i = 0; i < n_lines; ++i) {
+        for (size_t i = 0; i < lines_num; ++i) {
             size_t* old_cpu_line = util_strnums(strlen(old_cpu_data[i]), strchr(old_cpu_data[i], ' '), &num_count, base);
             size_t* new_cpu_line = util_strnums(strlen(new_cpu_data[i]), strchr(new_cpu_data[i], ' '), &num_count, base);
             /*
@@ -220,7 +221,7 @@ char* util_analyze_stat(char* restrict old_data, char* restrict new_data, size_t
             free(old_cpu_line);
             free(new_cpu_line);
         }
-        for (size_t i = 0; i < n_lines; ++i) {
+        for (size_t i = 0; i < lines_num; ++i) {
             free(old_cpu_data[i]);
             free(new_cpu_data[i]); 
         }

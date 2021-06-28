@@ -13,12 +13,12 @@ void sring_delete(synch_ring* sr);
 bool sring_is_empty(synch_ring const* sr);
 bool sring_is_full(synch_ring const* sr);
 
-bool sring_append(synch_ring* sr, char* restrict new_elem, 
+bool sring_append(synch_ring* restrict sr, char* restrict new_elem, 
                   size_t const elem_len);
-char* sring_pop_front(synch_ring* sr);
+char* sring_pop_front(synch_ring* restrict sr);
 
 void sring_print(synch_ring const* restrict sr, char const delim, 
-                  FILE* restrict outstream);
+                    FILE* restrict outstream);
 
 void sring_mutex_lock(synch_ring* sr);
 void sring_mutex_unlock(synch_ring* sr);
