@@ -29,7 +29,7 @@ TEXEC := test.out
 # By default use gcc
 CC ?= gcc
 
-C_FLAGS := -Wall -Wextra -Winline -pthread
+C_FLAGS := -Wall -Wextra -Winline -pthread -Wno-disabled-macro-expansion
 
 DEP_FLAGS := -MMD -MP
 

@@ -7,7 +7,8 @@
 
 typedef struct logger_args logger_args;
 
-logger_args* largs_new(synch_ring* sr_logs, FILE* outstream);
+logger_args* largs_new(synch_ring* sr_logs, 
+                        FILE* outstream);
                             
 void largs_delete(logger_args* aa);
 

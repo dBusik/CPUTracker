@@ -16,7 +16,8 @@ struct logger_args {
     FILE* outstream;
 };
 
-logger_args* largs_new(synch_ring* sr_logs, FILE* outstream) {
+logger_args* largs_new(synch_ring* sr_logs, 
+                        FILE* outstream) {
     logger_args* new_ra = 0;
     if (sr_logs && outstream) {
         new_ra = malloc(sizeof(*new_ra));
@@ -51,6 +52,5 @@ void* statt_logger(void* arg) {
         free(log);
         log = 0;
     }
-
     return NULL;
 }

@@ -2,10 +2,12 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
+#include <signal.h>
 
 #include "stat_reader.h"
 #include "synch_ring.h"
 #include "stat_utils.h"
+#include "flow_control.h"
 
 #define STAT_LINE_LEN 256
 #define STATFILE "/proc/stat"
@@ -20,10 +22,12 @@
 struct reader_args {
     synch_ring* sr_for_analyzer;
     synch_ring* sr_for_logger;
+    thread_flow* flow_vars;
 };
 
 reader_args* rargs_new(synch_ring* sr_for_analyzer, 
-                        synch_ring* sr_for_logger) 
+                        synch_ring* sr_for_logger,
+                        thread_flow* flow_vars) 
 {
     reader_args* new_ra = 0;
     if (sr_for_analyzer && sr_for_logger) {
@@ -32,6 +36,7 @@ reader_args* rargs_new(synch_ring* sr_for_analyzer,
             *new_ra = (reader_args) {
                 .sr_for_analyzer = sr_for_analyzer,
                 .sr_for_logger = sr_for_logger,
+                .flow_vars = flow_vars,
             };
         }
     }
@@ -98,6 +103,7 @@ void* statt_reader(void* arg) {
     reader_args* r_args = *(reader_args**)arg;
 
     synch_ring* sr_for_analyzer = r_args->sr_for_analyzer;
+    sig_atomic_t volatile* done = tflow_get_reader(r_args->flow_vars);
     
     synch_ring* sr_for_logger = r_args->sr_for_logger;
 
@@ -107,8 +113,8 @@ void* statt_reader(void* arg) {
 
     SRING_APPEND_STR(sr_for_logger, "Reader thread initialized, entering main loop.");
 
-    while(true) {
-        /* create some pid_t variable for logger here */
+    while(!(*done)) {
+        sleep(1);
         
         /* Do something if file was read successfully */
         if (reader_getstat(&file_buffer, &file_len)) {
@@ -116,8 +122,9 @@ void* statt_reader(void* arg) {
             SRING_APPEND_STR(sr_for_analyzer, file_buffer);
 
         }
-        sleep(1);
     }
+    
+    free(file_buffer);
 
     SRING_APPEND_STR(sr_for_logger, "Reader thread done, already after main loop.");
 

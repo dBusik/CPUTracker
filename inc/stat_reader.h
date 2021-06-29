@@ -2,12 +2,13 @@
 #define STATREADER_H
 
 #include "synch_ring.h"
-#include <stddef.h>
+#include "flow_control.h"
 
 typedef struct reader_args reader_args;
 
 reader_args* rargs_new(synch_ring* sr_for_analyzer, 
-                        synch_ring* sr_for_logger);
+                        synch_ring* sr_for_logger,
+                        thread_flow* flow_vars);
 
 void rargs_delete(reader_args* ra);
 

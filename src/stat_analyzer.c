@@ -1,10 +1,12 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include <signal.h>
 
 #include "stat_analyzer.h"
 #include "synch_ring.h"
 #include "stat_utils.h"
+#include "flow_control.h"
 
 /* Base to which numbers from /proc/stat are converted */
 #define DATA_NUM_BASE 10
@@ -20,11 +22,13 @@ struct analyzer_args {
     synch_ring* sr_from_reader;
     synch_ring* sr_for_printer;
     synch_ring* sr_for_logger;
+    thread_flow* flow_vars;
 };
 
 analyzer_args* aargs_new(synch_ring* sr_from_reader, 
                             synch_ring* sr_for_printer,
-                            synch_ring* sr_for_logger)
+                            synch_ring* sr_for_logger,
+                            thread_flow* flow_vars)
 {
     analyzer_args* new_aa = 0;
     if (sr_from_reader && sr_for_printer && sr_for_logger) {
@@ -34,6 +38,7 @@ analyzer_args* aargs_new(synch_ring* sr_from_reader,
                 .sr_from_reader = sr_from_reader,
                 .sr_for_printer = sr_for_printer,
                 .sr_for_logger = sr_for_logger,
+                .flow_vars = flow_vars,
             };
         }
     }
@@ -121,9 +126,11 @@ static char* analyzer_calc(char* restrict old_data, char* restrict new_data) {
 
 void* statt_analyzer(void* arg) {
     analyzer_args* a_args = *(analyzer_args**)arg;
+    
     synch_ring* sr_from_reader = a_args->sr_from_reader;
     synch_ring* sr_for_printer = a_args->sr_for_printer;
     synch_ring* sr_for_logger = a_args->sr_for_logger;
+    sig_atomic_t volatile* done = tflow_get_analyzer(a_args->flow_vars);
 
     /* Holders for number of symbols in /proc/stat and its data */
     char* old_data_buf = 0;
@@ -144,8 +151,7 @@ void* statt_analyzer(void* arg) {
     
     SRING_APPEND_STR(sr_for_logger, "Analyzer thread done first read, entering main loop.");
 
-    while(true) {
-        /* create some pid_t variable for logger here */
+    while(!(*done)) {
         SRING_POP_STR(sr_from_reader, new_data_buf);
 
         if (new_data_buf) {
@@ -171,6 +177,7 @@ void* statt_analyzer(void* arg) {
         }
     }
 
+    free(temp_buf);
     SRING_APPEND_STR(sr_for_logger, "Analyzer thread done, already after main loop.");
 
     return NULL;

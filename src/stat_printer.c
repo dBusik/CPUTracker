@@ -1,9 +1,11 @@
 #include <stdlib.h> 
 #include <stdio.h>
 #include <string.h>
+#include <signal.h>
 
 #include "stat_printer.h"
 #include "synch_ring.h"
+#include "flow_control.h"
 
 /* 
     This small structure is initialized by pointers 
@@ -15,9 +17,12 @@
 struct printer_args {
     synch_ring* sr_from_analyzer;
     synch_ring* sr_for_logger;
+    thread_flow* flow_vars;
 };
 
-printer_args* pargs_new(synch_ring* sr_from_analyzer, synch_ring* sr_for_logger) 
+printer_args* pargs_new(synch_ring* sr_from_analyzer, 
+                        synch_ring* sr_for_logger,
+                        thread_flow* flow_vars) 
 {
     printer_args* new_pa = 0;
     if (sr_for_logger && sr_from_analyzer) {
@@ -26,6 +31,7 @@ printer_args* pargs_new(synch_ring* sr_from_analyzer, synch_ring* sr_for_logger)
             *new_pa = (printer_args) {
                 .sr_from_analyzer = sr_from_analyzer,
                 .sr_for_logger = sr_for_logger,
+                .flow_vars = flow_vars,
             };
         }
     }
@@ -42,6 +48,7 @@ void* statt_printer(void* arg) {
 
     synch_ring* sr_from_analyzer = p_args->sr_from_analyzer;
     synch_ring* sr_for_logger = p_args->sr_for_logger;
+    sig_atomic_t volatile* done = tflow_get_printer(p_args->flow_vars);
 
     char* calc_stats = 0;
     int counter = 0;
@@ -49,7 +56,7 @@ void* statt_printer(void* arg) {
     
     SRING_APPEND_STR(sr_for_logger, "Printer thread initialized, entering main loop.");
     
-    while(true) {
+    while(!(*done)) {
 
         SRING_POP_STR(sr_from_analyzer, calc_stats);
         
