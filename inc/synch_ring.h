@@ -5,6 +5,28 @@
 #include <stdio.h>
 #include <stdbool.h>
 
+#define SRING_APPEND_STR(sr_buf, data)          \
+do {                                            \
+    sring_mutex_lock(sr_buf);                   \
+    if (sring_is_full(sr_buf)) {                \
+        sring_wait_for_consumer(sr_buf);        \
+    }                                           \
+    sring_append(sr_buf, data, strlen(data));   \
+    sring_call_consumer(sr_buf);                \
+    sring_mutex_unlock(sr_buf);                 \
+} while(false)
+
+#define SRING_POP_STR(sr_buf, target)   \
+do {                                    \
+    sring_mutex_lock(sr_buf);           \
+    if (sring_is_empty(sr_buf)) {       \
+        sring_wait_for_producer(sr_buf);\
+    }                                   \
+    target = sring_pop_front(sr_buf);   \
+    sring_call_producer(sr_buf);        \
+    sring_mutex_unlock(sr_buf);         \
+} while(false)
+
 typedef struct synch_ring synch_ring;
 
 synch_ring* sring_new(size_t max_len);

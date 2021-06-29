@@ -10,10 +10,9 @@
 #define DATA_NUM_BASE 10
 
 /* 
-    Small unsafe structure consisting of three synch_ring buffers. 
-    Initialized by pointers to buffers, which means that it 
-    becomes dangerous if either of the buffers gets 
-    removed by other part of the program.
+    This small structure is initialized by pointers 
+    to its elements, which means that it becomes dangerous 
+    if either of them gets free'd by other part of the program.
 
     USED ONLY AS TEMPORARY HOLDER FOR ARGUMENTS OF ANALYZER THREAD  
 */
@@ -100,7 +99,7 @@ static char* analyzer_calc(char* restrict old_data, char* restrict new_data) {
             
                 cpu_percentage = (double)(total_diff - idle_diff)/(double)total_diff * 1e2;
                 
-                sprintf(small_buff, "%.2lf ", cpu_percentage);
+                sprintf(small_buff, "%-6.2lf%-1s ", cpu_percentage, "%");
                 char* mid_result_str = util_str_concat(calc_cpu_data, small_buff);
                 free(calc_cpu_data);
                 calc_cpu_data = mid_result_str;
@@ -127,49 +126,35 @@ void* statt_analyzer(void* arg) {
     synch_ring* sr_for_logger = a_args->sr_for_logger;
 
     /* Holders for number of symbols in /proc/stat and its data */
-    size_t data_counter = 0;
-    size_t n_lines = 0;
     char* old_data_buf = 0;
     char* new_data_buf = 0;
-    char* temp_buf = 0;
     char* result_data = 0;
 
-    (void)data_counter;
-    (void)n_lines;
-    (void)sr_for_printer;
-    (void)sr_for_logger;
+    SRING_APPEND_STR(sr_for_logger, "Analyzer thread initialized, doing initial read.");
 
+    /* 
+        Initial data read to be able to count CPU usage 
+        after first iteration of infinite loop 
+    */
     while(!old_data_buf) {
-        sring_mutex_lock(sr_from_reader);
-        if (sring_is_empty(sr_from_reader)) {
-            sring_wait_for_producer(sr_from_reader);
-        }
-
-        old_data_buf = sring_pop_front(sr_from_reader);
-
-        sring_call_producer(sr_from_reader);
-        sring_mutex_unlock(sr_from_reader);
+        SRING_POP_STR(sr_from_reader, old_data_buf);
     }
+
+    char* temp_buf = 0;
+    
+    SRING_APPEND_STR(sr_for_logger, "Analyzer thread done first read, entering main loop.");
 
     while(true) {
         /* create some pid_t variable for logger here */
-
-        sring_mutex_lock(sr_from_reader);
-        if (sring_is_empty(sr_from_reader)) {
-            sring_wait_for_producer(sr_from_reader);
-        }
-
-        new_data_buf = sring_pop_front(sr_from_reader);
-
-        sring_call_producer(sr_from_reader);
-        sring_mutex_unlock(sr_from_reader);
+        SRING_POP_STR(sr_from_reader, new_data_buf);
 
         if (new_data_buf) {
+            /* 
+                Remember read data becuase string 
+                will be changed during parsing 
+            */
             temp_buf = strdup(new_data_buf);
 
-            printf("old_data:%s\n", old_data_buf);
-            printf("new_data:%s\n", new_data_buf);
-            
             result_data = analyzer_calc(old_data_buf, new_data_buf);
             
             free(old_data_buf);
@@ -178,23 +163,15 @@ void* statt_analyzer(void* arg) {
             
             old_data_buf = temp_buf;
 
-            printf("results: %s\n", result_data);
-
             /* Push result data to buffer from which printer reads */
-            /*sring_mutex_lock(sr_for_printer);
-            if (sring_is_full(sr_for_printer)) {
-                sring_wait_for_consumer(sr_for_printer);
-            }
-
-            sring_append(sr_for_printer, result_data, strlen(result_data));
-
-            sring_call_consumer(sr_for_printer);
-            sring_mutex_unlock(sr_for_printer);*/
+            SRING_APPEND_STR(sr_for_printer, result_data);
 
             free(result_data);
             result_data = 0;
         }
     }
+
+    SRING_APPEND_STR(sr_for_logger, "Analyzer thread done, already after main loop.");
 
     return NULL;
 }

@@ -36,7 +36,7 @@ static void ring_remove_arr(ring_buf* rb) {
     size_t i = rb->start;
     size_t counter = 0;
     while (counter < rb->len) {
-        printf("ring_clear: Cleaned %zu bytes. Pos %zu, pop result is \"%s\"\n", strlen(rb->arr[i]) + 1, i, rb->arr[i]);
+        /*printf("ring_clear: Cleaned %zu bytes. Pos %zu, pop result is \"%s\"\n", strlen(rb->arr[i]) + 1, i, rb->arr[i]);*/
         free(rb->arr[i]);
         ++i;
         i %= rb->max_len;
@@ -91,7 +91,7 @@ bool ring_append(ring_buf* rb, char* restrict new_elem,
     bool result = false;
     if (rb && new_elem && (rb->len < rb->max_len)) {
         size_t end_pos = ring_getpos(rb, rb->len);
-        printf("mallocing %zu bytes for new element\n", sizeof(**rb->arr) * elem_len + 1);
+        /*printf("mallocing %zu bytes for new element\n", sizeof(**rb->arr) * elem_len + 1);*/
         rb->arr[end_pos] = malloc(sizeof(**(rb->arr)) * elem_len + 1);
         if (rb->arr[end_pos]) {
             (rb->len)++;
@@ -110,12 +110,12 @@ char* ring_pop_front(ring_buf* rb) {
         /* Maybe an overkill check cause we already now that rb->len is not 0 */
         if(first_elem) {
             res = *first_elem;
-            printf("Cleaned %zu bytes. Pop result is \"%s\"\n", strlen(*first_elem) + 1, res);
+            /*printf("Cleaned %zu bytes. Pop result is \"%s\"\n", strlen(*first_elem) + 1, res);*/
             *first_elem = 0;
             rb->start = (rb->start + 1) % rb->max_len;
             rb->len--;
         }    
-        printf("Current start %zu, len %zu\n", rb->start, rb->len);
+        /*printf("Current start %zu, len %zu\n", rb->start, rb->len);*/
     }
     return res;
 }

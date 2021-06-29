@@ -11,10 +11,9 @@
 #define STATFILE "/proc/stat"
 
 /* 
-    Small unsafe structure consisting of two synch_ring buffers. 
-    Initialized by pointers to buffers, which means that it 
-    becomes dangerous if either of the buffers gets 
-    removed by other part of the program.
+    This small structure is initialized by pointers 
+    to its elements, which means that it becomes dangerous 
+    if either of them gets free'd by other part of the program.
 
     USED ONLY AS TEMPORARY HOLDER FOR ARGUMENTS OF READER THREAD  
 */
@@ -101,29 +100,26 @@ void* statt_reader(void* arg) {
     synch_ring* sr_for_analyzer = r_args->sr_for_analyzer;
     
     synch_ring* sr_for_logger = r_args->sr_for_logger;
-    (void)sr_for_logger;
 
     /* Holders for number of symbols in /proc/stat and its data */
     size_t file_len = 1;
     char* file_buffer = malloc(1);
+
+    SRING_APPEND_STR(sr_for_logger, "Reader thread initialized, entering main loop.");
 
     while(true) {
         /* create some pid_t variable for logger here */
         
         /* Do something if file was read successfully */
         if (reader_getstat(&file_buffer, &file_len)) {
-            sring_mutex_lock(sr_for_analyzer);
-            if (sring_is_full(sr_for_analyzer)) {
-                sring_wait_for_consumer(sr_for_analyzer);
-            }
+            
+            SRING_APPEND_STR(sr_for_analyzer, file_buffer);
 
-            sring_append(sr_for_analyzer, file_buffer, file_len);
-
-            sring_call_consumer(sr_for_analyzer);
-            sring_mutex_unlock(sr_for_analyzer);
         }
         sleep(1);
     }
+
+    SRING_APPEND_STR(sr_for_logger, "Reader thread done, already after main loop.");
 
     return NULL;
 }
