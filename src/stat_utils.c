@@ -59,9 +59,13 @@ size_t* util_strnums(size_t len, char const line[],
     size_t* result = 0;
     size_t n = 0;
     if (memchr(line, 0, len)) {
-        /* TODO: Magic numbers explanataion */
+        /* 
+            In a string consisting only of numbers, max half + 1 of symbols 
+            will represent a new number for array. 
+            (When string looks like "3 3 3 3 3 .."")
+        */
         
-        result = malloc(sizeof(*result) * (1 + (2 * len)/3));
+        result = malloc(sizeof(*result) * (1 + (len/2)));
         
         for (char* next = 0; line[0]; line = next) {
             result[n] = strtoull(line, &next, base);

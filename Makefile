@@ -29,16 +29,16 @@ TEXEC := test.out
 # By default use gcc
 CC ?= gcc
 
-C_FLAGS := -Wall -Wextra -Winline -pthread -Wno-disabled-macro-expansion
+C_FLAGS := -Wall -Wextra -pthread 
 
 DEP_FLAGS := -MMD -MP
 
 H_INC := $(foreach d, $(IDIR), -I$d)
 
 ifeq ($(CC),clang)
-	C_FLAGS += -Weverything
+	C_FLAGS += -Weverything -Wno-disabled-macro-expansion
 else ifneq (, $(filter $(CC), cc gcc))
-	C_FLAGS += -rdynamic
+	C_FLAGS += -rdynamic -Wno-clobbered
 endif
 
 ifeq ("$(origin O)", "command line")

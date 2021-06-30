@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
+#include <pthread.h>
+#include <stdatomic.h>
 
 #include "stat_analyzer.h"
 #include "synch_ring.h"
@@ -22,13 +24,15 @@ struct analyzer_args {
     synch_ring* sr_from_reader;
     synch_ring* sr_for_printer;
     synch_ring* sr_for_logger;
-    thread_flow* flow_vars;
+    thread_stoppers* stop_vars;
+    thread_checkers* check_vars;
 };
 
 analyzer_args* aargs_new(synch_ring* sr_from_reader, 
                             synch_ring* sr_for_printer,
                             synch_ring* sr_for_logger,
-                            thread_flow* flow_vars)
+                            thread_stoppers* stop_vars,
+                            thread_checkers* check_vars)
 {
     analyzer_args* new_aa = 0;
     if (sr_from_reader && sr_for_printer && sr_for_logger) {
@@ -38,7 +42,8 @@ analyzer_args* aargs_new(synch_ring* sr_from_reader,
                 .sr_from_reader = sr_from_reader,
                 .sr_for_printer = sr_for_printer,
                 .sr_for_logger = sr_for_logger,
-                .flow_vars = flow_vars,
+                .stop_vars = stop_vars,
+                .check_vars = check_vars,
             };
         }
     }
@@ -124,18 +129,34 @@ static char* analyzer_calc(char* restrict old_data, char* restrict new_data) {
     return calc_cpu_data;
 }
 
-void* statt_analyzer(void* arg) {
-    analyzer_args* a_args = *(analyzer_args**)arg;
-    
-    synch_ring* sr_from_reader = a_args->sr_from_reader;
-    synch_ring* sr_for_printer = a_args->sr_for_printer;
-    synch_ring* sr_for_logger = a_args->sr_for_logger;
-    sig_atomic_t volatile* done = tflow_get_analyzer(a_args->flow_vars);
+static void analyzer_buffer_cleanup(void* arg) {
+    if (arg) {
+        char** buffer_to_clean = (char**) arg;
+        free(*buffer_to_clean);
+    }
+}
 
+void* statt_analyzer(void* arg) {
     /* Holders for number of symbols in /proc/stat and its data */
     char* old_data_buf = 0;
     char* new_data_buf = 0;
     char* result_data = 0;
+    char* temp_buf = 0;
+    
+    pthread_cleanup_push(analyzer_buffer_cleanup, (void*) &old_data_buf)
+    pthread_cleanup_push(analyzer_buffer_cleanup, (void*) &new_data_buf)
+    pthread_cleanup_push(analyzer_buffer_cleanup, (void*) &result_data)
+    pthread_cleanup_push(analyzer_buffer_cleanup, (void*) &temp_buf)
+
+    analyzer_args* a_args = *(analyzer_args**)arg;
+    
+    sig_atomic_t volatile* done = tstop_get_analyzer(a_args->stop_vars);
+    tcheck_analyzer_activate(a_args->check_vars);
+    
+    synch_ring* sr_from_reader = a_args->sr_from_reader;
+    synch_ring* sr_for_printer = a_args->sr_for_printer;
+    synch_ring* sr_for_logger = a_args->sr_for_logger;
+
 
     SRING_APPEND_STR(sr_for_logger, "Analyzer thread initialized, doing initial read.");
 
@@ -144,14 +165,15 @@ void* statt_analyzer(void* arg) {
         after first iteration of infinite loop 
     */
     while(!old_data_buf) {
+        tcheck_analyzer_activate(a_args->check_vars);
         SRING_POP_STR(sr_from_reader, old_data_buf);
     }
 
-    char* temp_buf = 0;
     
     SRING_APPEND_STR(sr_for_logger, "Analyzer thread done first read, entering main loop.");
 
     while(!(*done)) {
+        tcheck_analyzer_activate(a_args->check_vars);
         SRING_POP_STR(sr_from_reader, new_data_buf);
 
         if (new_data_buf) {
@@ -163,11 +185,13 @@ void* statt_analyzer(void* arg) {
 
             result_data = analyzer_calc(old_data_buf, new_data_buf);
             
-            free(old_data_buf);
             free(new_data_buf);
             new_data_buf = 0;
             
-            old_data_buf = temp_buf;
+            free(old_data_buf);
+            old_data_buf = strdup(temp_buf);
+            free(temp_buf);
+            temp_buf = 0;
 
             /* Push result data to buffer from which printer reads */
             SRING_APPEND_STR(sr_for_printer, result_data);
@@ -177,8 +201,12 @@ void* statt_analyzer(void* arg) {
         }
     }
 
-    free(temp_buf);
     SRING_APPEND_STR(sr_for_logger, "Analyzer thread done, already after main loop.");
+
+    pthread_cleanup_pop(1);
+    pthread_cleanup_pop(1);
+    pthread_cleanup_pop(1);
+    pthread_cleanup_pop(1);
 
     return NULL;
 }

@@ -1,5 +1,6 @@
 #include <stdlib.h> 
 #include <stdio.h>
+#include <pthread.h>
 
 #include "stat_logger.h"
 #include "synch_ring.h"
@@ -36,13 +37,22 @@ void largs_delete(logger_args* ra) {
     free(ra);
 }
 
+static void logger_buffer_cleanup(void* arg) {
+    if (arg) {
+        char** buffer_to_clean = (char**) arg;
+        free(*buffer_to_clean);
+    }
+}
+
 void* statt_logger(void* arg) {
+    char* log = 0;
+    
+    pthread_cleanup_push(logger_buffer_cleanup, (void*) &log)
+
     logger_args* l_args = *(logger_args**)arg;
 
     synch_ring* sr_logs = l_args->sr_logs;
     FILE* outstream = l_args->outstream;
-
-    char* log = 0;
 
     while(true) {
         
@@ -52,5 +62,8 @@ void* statt_logger(void* arg) {
         free(log);
         log = 0;
     }
+
+    pthread_cleanup_pop(1);
+
     return NULL;
 }

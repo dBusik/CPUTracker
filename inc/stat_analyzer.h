@@ -9,7 +9,8 @@ typedef struct analyzer_args analyzer_args;
 analyzer_args* aargs_new(synch_ring* sr_from_reader, 
                             synch_ring* sr_for_printer,
                             synch_ring* sr_for_logger,
-                            thread_flow* flow_vars);
+                            thread_stoppers* stop_vars,
+                            thread_checkers* check_vars);
                             
 void aargs_delete(analyzer_args* aa);
 

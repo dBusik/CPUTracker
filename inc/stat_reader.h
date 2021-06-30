@@ -8,7 +8,8 @@ typedef struct reader_args reader_args;
 
 reader_args* rargs_new(synch_ring* sr_for_analyzer, 
                         synch_ring* sr_for_logger,
-                        thread_flow* flow_vars);
+                        thread_stoppers* stop_vars,
+                        thread_checkers* check_vars);
 
 void rargs_delete(reader_args* ra);
 
