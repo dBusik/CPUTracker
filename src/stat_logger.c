@@ -18,17 +18,21 @@ struct logger_args {
 };
 
 logger_args* largs_new(synch_ring* sr_logs, 
-                        FILE* outstream) {
-    logger_args* new_ra = 0;
-    if (sr_logs && outstream) {
-        new_ra = malloc(sizeof(*new_ra));
-        if (new_ra) {
-            *new_ra = (logger_args) {
-                .sr_logs = sr_logs,
-                .outstream = outstream,
-            };
-        }
-    }
+                        FILE* outstream) 
+{
+    if (!sr_logs || !outstream)
+        return 0;
+    
+    logger_args* new_ra = malloc(sizeof(*new_ra));
+    
+    if (!new_ra)
+        return 0;
+    
+    *new_ra = (logger_args) {
+        .sr_logs = sr_logs,
+        .outstream = outstream,
+    };
+
     return new_ra;
 }
 
@@ -38,10 +42,11 @@ void largs_delete(logger_args* ra) {
 }
 
 static void logger_buffer_cleanup(void* arg) {
-    if (arg) {
-        char** buffer_to_clean = (char**) arg;
-        free(*buffer_to_clean);
-    }
+    if (!arg)
+        return;
+    
+    char** buffer_to_clean = (char**) arg;
+    free(*buffer_to_clean);
 }
 
 void* statt_logger(void* arg) {

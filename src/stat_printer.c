@@ -30,18 +30,21 @@ printer_args* pargs_new(synch_ring* sr_from_analyzer,
                         thread_stoppers* stop_vars,
                         thread_checkers* check_vars) 
 {
-    printer_args* new_pa = 0;
-    if (sr_for_logger && sr_from_analyzer) {
-        new_pa = malloc(sizeof(*new_pa));
-        if (new_pa) {
-            *new_pa = (printer_args) {
-                .sr_from_analyzer = sr_from_analyzer,
-                .sr_for_logger = sr_for_logger,
-                .stop_vars = stop_vars,
-                .check_vars = check_vars,
-            };
-        }
-    }
+    if (!sr_for_logger || !sr_from_analyzer)
+        return 0;
+    
+    printer_args* new_pa = malloc(sizeof(*new_pa));
+        
+    if (!new_pa)
+        return 0;
+    
+    *new_pa = (printer_args) {
+        .sr_from_analyzer = sr_from_analyzer,
+        .sr_for_logger = sr_for_logger,
+        .stop_vars = stop_vars,
+        .check_vars = check_vars,
+    };
+
     return new_pa;
 }
 
@@ -51,10 +54,11 @@ void pargs_delete(printer_args* pa) {
 }
 
 static void printer_buffer_cleanup(void* arg) {
-    if (arg) {
-        char** buffer_to_clean = (char**) arg;
-        free(*buffer_to_clean);
-    }
+    if (!arg)
+        return;
+    
+    char** buffer_to_clean = (char**) arg;
+    free(*buffer_to_clean);
 }
 
 void* statt_printer(void* arg) {
@@ -66,7 +70,7 @@ void* statt_printer(void* arg) {
 
     printer_args* p_args = *(printer_args**)arg;
     
-    sig_atomic_t volatile* done = tstop_get_printer(p_args->stop_vars);
+    volatile sig_atomic_t* done = tstop_get_printer(p_args->stop_vars);
     tcheck_printer_activate(p_args->check_vars);
     
     synch_ring* sr_from_analyzer = p_args->sr_from_analyzer;
@@ -74,6 +78,7 @@ void* statt_printer(void* arg) {
     
     SRING_APPEND_STR(sr_for_logger, "Printer thread initialized, entering main loop.");
     CLEAR_STDOUT();
+    
     while(!(*done)) {
         tcheck_printer_activate(p_args->check_vars);
         SRING_POP_STR(sr_from_analyzer, calc_stats);

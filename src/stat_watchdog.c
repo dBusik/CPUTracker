@@ -21,15 +21,17 @@ watchdog_args* wargs_new(size_t thread_num,
                             pthread_t threads[],
                             thread_checkers* check_vars)
 {
-    watchdog_args* new_wa = 0;
-    if (threads && thread_num && check_vars) {
-        new_wa = malloc(sizeof(*new_wa) + sizeof(pthread_t) * thread_num);
-        if (new_wa) {
-            new_wa->check_vars = check_vars;
-            new_wa->num_of_threads = thread_num;
-            memcpy(new_wa->working_threads, threads, thread_num *  sizeof(pthread_t));
-        }
-    }
+    if (!threads || !thread_num || !check_vars)
+        return 0;
+    
+    watchdog_args* new_wa = malloc(sizeof(*new_wa) + sizeof(pthread_t) * thread_num);
+    if (!new_wa)
+        return 0;
+
+    new_wa->check_vars = check_vars;
+    new_wa->num_of_threads = thread_num;
+    memcpy(new_wa->working_threads, threads, thread_num *  sizeof(pthread_t));
+    
     return new_wa;
 }
 
@@ -51,11 +53,10 @@ void* statt_watchdog(void* arg) {
     while(true) {
         sleep(WATCHDOG_SLEEP_TIME);
 
-        if (tcheck_perform_check(check_vars)) {
-            tcheck_reset_checks(check_vars);
-        } else {
+        if (!tcheck_perform_check(check_vars))
             break;
-        }
+
+        tcheck_reset_checks(check_vars);
     }
 
     /* 

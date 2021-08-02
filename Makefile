@@ -38,7 +38,7 @@ H_INC := $(foreach d, $(IDIR), -I$d)
 ifeq ($(CC),clang)
 	C_FLAGS += -Weverything -Wno-disabled-macro-expansion
 else ifneq (, $(filter $(CC), cc gcc))
-	C_FLAGS += -rdynamic -Wno-clobbered
+	C_FLAGS += -rdynamic
 endif
 
 ifeq ("$(origin O)", "command line")

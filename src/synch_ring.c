@@ -15,52 +15,55 @@ struct synch_ring {
 
 synch_ring* sring_new(size_t max_len) {
     synch_ring* new_sr = 0;
-    if (max_len) {
-        new_sr = malloc(sizeof(synch_ring));
-        if (new_sr) {
-            *new_sr = (synch_ring) {
-                    .buffer = ring_new(max_len),
-                    .mutex = PTHREAD_MUTEX_INITIALIZER,
-                    .append_possible = PTHREAD_COND_INITIALIZER,
-                    .pop_possible = PTHREAD_COND_INITIALIZER,
-            };
-            if (!new_sr->buffer) {
-                free(new_sr);
-                new_sr = 0;
-            }
-        }
-
+    if (!max_len)
+        return 0;
+    
+    new_sr = malloc(sizeof(synch_ring));
+    if (!new_sr)
+        return 0;
+    
+    *new_sr = (synch_ring) {
+            .buffer = ring_new(max_len),
+            .mutex = PTHREAD_MUTEX_INITIALIZER,
+            .append_possible = PTHREAD_COND_INITIALIZER,
+            .pop_possible = PTHREAD_COND_INITIALIZER,
+    };
+    if (!new_sr->buffer) {
+        free(new_sr);
+        new_sr = 0;
     }
+
     return new_sr;
 }
 
 void sring_clear(synch_ring* sr) {
-    if (sr) {
-        ring_clear(sr->buffer);
-    }
+    if (!sr)
+        return;
+
+    ring_clear(sr->buffer);
 }
 
 void sring_delete(synch_ring* sr) {
-    if (sr) {
-        pthread_mutex_destroy(&sr->mutex);
-        pthread_cond_destroy(&sr->append_possible);
-        pthread_cond_destroy(&sr->pop_possible);
+    if (!sr)
+        return;
+    pthread_mutex_destroy(&sr->mutex);
+    pthread_cond_destroy(&sr->append_possible);
+    pthread_cond_destroy(&sr->pop_possible);
 
-        ring_delete(sr->buffer);
-        free(sr);
-    }
+    ring_delete(sr->buffer);
+    free(sr);
 }
 
-bool sring_is_empty(synch_ring const* sr) {
+bool sring_is_empty(const synch_ring* sr) {
     return sr ? !(ring_length(sr->buffer)) : true;
 }
 
-bool sring_is_full(synch_ring const* sr) {
+bool sring_is_full(const synch_ring* sr) {
     return sr ? ring_is_full(sr->buffer) : false;
 }
 
-bool sring_append(synch_ring* sr, char* restrict new_elem,
-                  size_t const elem_len) {
+bool sring_append(synch_ring* restrict sr, char* restrict new_elem,
+                  const size_t elem_len) {
     return sr ? ring_append(sr->buffer, new_elem, elem_len) : false;
 }
 
@@ -68,14 +71,13 @@ char* sring_pop_front(synch_ring* sr) {
     return sr ? ring_pop_front(sr->buffer) : 0;
 }
 
-void sring_print(synch_ring const* restrict sr, char const delim,
-                    FILE* restrict outstream)
+void sring_print(const synch_ring* sr, const char delim, FILE* outstream)
 {
-    if (sr) {
-        ring_print(sr->buffer, delim, outstream);
-    } else {
-        perror("Invalid synch_ring pointer");
+    if (!sr) {
+        printf("Invalid synch_ring pointer");
+        return;
     }
+    ring_print(sr->buffer, delim, outstream);
 }
 
 void sring_mutex_lock(synch_ring* sr) {

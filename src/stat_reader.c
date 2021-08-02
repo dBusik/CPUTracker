@@ -34,18 +34,20 @@ reader_args* rargs_new(synch_ring* sr_for_analyzer,
                         thread_stoppers* stop_vars,
                         thread_checkers* check_vars) 
 {
-    reader_args* new_ra = 0;
-    if (sr_for_analyzer && sr_for_logger) {
-        new_ra = malloc(sizeof(*new_ra));
-        if (new_ra) {
-            *new_ra = (reader_args) {
-                .sr_for_analyzer = sr_for_analyzer,
-                .sr_for_logger = sr_for_logger,
-                .stop_vars = stop_vars,
-                .check_vars = check_vars,
-            };
-        }
-    }
+    if (!sr_for_analyzer || !sr_for_logger)
+        return 0;
+
+    reader_args* new_ra = malloc(sizeof(*new_ra));
+    
+    if (!new_ra)
+        return 0;
+    
+    *new_ra = (reader_args) {
+        .sr_for_analyzer = sr_for_analyzer,
+        .sr_for_logger = sr_for_logger,
+        .stop_vars = stop_vars,
+        .check_vars = check_vars,
+    };
     return new_ra;
 }
 
@@ -59,63 +61,65 @@ void rargs_delete(reader_args* ra) {
     (which is the number_of_cores + 1).
     buf_len stores the number of symbols read;
 */
-static size_t reader_getstat(char** restrict buffer, 
-                                size_t* restrict buf_len,
-                                FILE* restrict stat_f) 
+static size_t reader_getstat(char** buffer, 
+                                size_t* buf_len,
+                                FILE* stat_f) 
 {
-    size_t result = 0;
-    if (stat_f && buffer) {
-        size_t needed_len = 0;
-        char chunk[STAT_LINE_LEN]; 
-        
-        /* Read file once to determine the buffer length needed for cpu data */
-        while (fgets(chunk, sizeof(chunk), stat_f)) {
-            if (util_str_begins_with(chunk, "cpu")) {
-                needed_len += strlen(chunk);
-            } else {
-                break;
-            }
-        }
-        fseek(stat_f, 0, SEEK_SET);
-
-        /* Read cpu data into single buffer */
-        char* new_buf = realloc(*buffer, needed_len + 1);
-        if (new_buf) {
-            size_t cpu_counter = 0;
-            *buffer = new_buf;
-            *buf_len = needed_len;
-            size_t used_len = 0;
-            while (fgets(chunk, sizeof(chunk), stat_f)) {
-                if (util_str_begins_with(chunk, "cpu")) {
-                    memcpy(*buffer + used_len, chunk, strlen(chunk));
-                    used_len += strlen(chunk);
-                    cpu_counter ++;
-                } else {
-                    break;
-                }
-            }
-            (*buffer)[used_len] = '\0';
-            result = cpu_counter;
-        }
-    } else {
-        perror("Read: invalid file or buffer pointer.\n");
+    if (!stat_f || !buffer) {
+        printf("Read: invalid file or buffer pointer.\n");
+        return 0;
     }
-    return result;
+
+    size_t needed_len = 0;
+    char chunk[STAT_LINE_LEN]; 
+    
+    /* Read file once to determine the buffer length needed for cpu data */
+    while (fgets(chunk, sizeof(chunk), stat_f)) {
+        if (util_str_begins_with(chunk, "cpu")) {
+            needed_len += strlen(chunk);
+        } else {
+            break;
+        }
+    }
+    fseek(stat_f, 0, SEEK_SET);
+
+    /* Read cpu data into single buffer */
+    char* new_buf = realloc(*buffer, needed_len + 1);
+    
+    if (!new_buf)
+        return 0;
+    
+    size_t cpu_counter = 0;
+    *buffer = new_buf;
+    *buf_len = needed_len;
+    size_t used_len = 0;
+    while (fgets(chunk, sizeof(chunk), stat_f)) {
+        if (!util_str_begins_with(chunk, "cpu"))
+            break;
+        
+        memcpy(*buffer + used_len, chunk, strlen(chunk));
+        used_len += strlen(chunk);
+        cpu_counter ++;
+    }
+    (*buffer)[used_len] = '\0';
+    return cpu_counter;
 }
 
 
 static void reader_buffer_cleanup(void* arg) {
-    if (arg) {
-        char** buffer_to_clean = (char**) arg;
-        free(*buffer_to_clean);
-    }
+    if (!arg)
+        return;
+    
+    char** buffer_to_clean = (char**) arg;
+    free(*buffer_to_clean);
 }
 
 static void reader_file_cleanup(void* arg) {
-    if (arg) {
-        FILE* file_to_clean = (FILE*) arg;
-        fclose(file_to_clean);
-    }
+    if (!arg)
+        return;
+
+    FILE* file_to_clean = (FILE*) arg;
+    fclose(file_to_clean);
 }
 
 void* statt_reader(void* arg) {
@@ -129,7 +133,7 @@ void* statt_reader(void* arg) {
     
     reader_args* r_args = *(reader_args**)arg;
 
-    sig_atomic_t volatile* done = tstop_get_reader(r_args->stop_vars);
+    volatile sig_atomic_t* done = tstop_get_reader(r_args->stop_vars);
 
     synch_ring* sr_for_analyzer = r_args->sr_for_analyzer;
     synch_ring* sr_for_logger = r_args->sr_for_logger;
@@ -156,10 +160,8 @@ void* statt_reader(void* arg) {
         
         stat_f = fopen(STATFILE, "r");
         
-        if (stat_f && reader_getstat(&reader_file_buf, &file_len, stat_f)) {
-            
+        if (stat_f && reader_getstat(&reader_file_buf, &file_len, stat_f)) {            
             SRING_APPEND_STR(sr_for_analyzer, reader_file_buf);
-
         }
 
         pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);

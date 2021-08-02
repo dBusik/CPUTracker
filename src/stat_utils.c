@@ -4,38 +4,41 @@
 #include <string.h>
 #include <stdbool.h>
 
-char** util_str_split(char* restrict data, char const delimiter, 
+char** util_str_split(char* restrict data, const char delimiter, 
                                 size_t* restrict n_tokens) {
-    char** result = 0;
-    if (data && n_tokens) {
-        if (!*n_tokens) {
-            char* check = data;
-            /* Is this needed (?) */
-            *n_tokens = 0;
-            while (*check) {
-                if (*check == delimiter) {
-                    ++(*n_tokens);
-                }
-                ++check;
+    if (!data && !n_tokens)
+        return 0;
+
+    if (!*n_tokens) {
+        char* check = data;
+        /* Is this needed (?) */
+        *n_tokens = 0;
+        while (*check) {
+            if (*check == delimiter) {
+                ++(*n_tokens);
             }
-            if (!*n_tokens) {
-                *n_tokens = 1;
-            }
+            ++check;
         }
-        result = malloc(sizeof(*result) * (*n_tokens));
-        if (result) {
-            size_t index = 0;
-            char delim[2] = { delimiter, '\0' };
-            char* token = strtok(data, delim);
-            while (token && index < *n_tokens) {
-                result[index] = strdup(token);
-                token  = strtok(0, delim);
-                ++index;
-            }
-            /* Needed when index < n_tokens */
-            *n_tokens = index;
+        if (!*n_tokens) {
+            *n_tokens = 1;
         }
     }
+    
+    char** result = malloc(sizeof(*result) * (*n_tokens));
+    if (!result)
+        return 0;
+
+    size_t index = 0;
+    char delim[2] = { delimiter, '\0' };
+    char* token = strtok(data, delim);
+    while (token && index < *n_tokens) {
+        result[index] = strdup(token);
+        token  = strtok(0, delim);
+        ++index;
+    }
+    /* Needed when index < n_tokens */
+    *n_tokens = index;
+
     return result;
 }
 
@@ -44,17 +47,18 @@ char* util_str_concat(char const* restrict str1, char const* restrict str2) {
     const size_t s2_len = strlen(str2);
 
     char* res = malloc(s1_len + s2_len + 1);
-    if (res) {
-        memcpy(res, str1, s1_len);
-        memcpy(res + s1_len, str2, s2_len);
-        res[s1_len + s2_len] = '\0';
-    }
+    if (!res)
+        return 0;
+    
+    memcpy(res, str1, s1_len);
+    memcpy(res + s1_len, str2, s2_len);
+    res[s1_len + s2_len] = '\0';
     
     return res;
 }
 
-size_t* util_strnums(size_t len, char const line[],
-                        size_t* restrict el_num, int const base) 
+size_t* util_strnums(size_t len, const char line[restrict],
+                        size_t* restrict el_num, const int base) 
 {
     size_t* result = 0;
     size_t n = 0;
