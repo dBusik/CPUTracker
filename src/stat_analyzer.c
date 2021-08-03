@@ -143,16 +143,6 @@ static void analyzer_buffer_cleanup(void* arg) {
 }
 
 void* statt_analyzer(void* arg) {
-    /* Holders for number of symbols in /proc/stat and its data */
-    char* old_data_buf = 0;
-    char* new_data_buf = 0;
-    char* result_data = 0;
-    char* temp_buf = 0;
-    
-    pthread_cleanup_push(analyzer_buffer_cleanup, (void*) &old_data_buf)
-    pthread_cleanup_push(analyzer_buffer_cleanup, (void*) &new_data_buf)
-    pthread_cleanup_push(analyzer_buffer_cleanup, (void*) &result_data)
-    pthread_cleanup_push(analyzer_buffer_cleanup, (void*) &temp_buf)
 
     analyzer_args* a_args = *(analyzer_args**)arg;
     
@@ -166,6 +156,17 @@ void* statt_analyzer(void* arg) {
 
     SRING_APPEND_STR(sr_for_logger, "Analyzer thread initialized, doing initial read.");
 
+    /* Holders for number of symbols in /proc/stat and its data */
+    char* old_data_buf = 0;
+    char* new_data_buf = 0;
+    char* result_data = 0;
+    char* temp_buf = 0;
+    
+    pthread_cleanup_push(analyzer_buffer_cleanup, (void*) &old_data_buf)
+    pthread_cleanup_push(analyzer_buffer_cleanup, (void*) &new_data_buf)
+    pthread_cleanup_push(analyzer_buffer_cleanup, (void*) &result_data)
+    pthread_cleanup_push(analyzer_buffer_cleanup, (void*) &temp_buf)
+    
     /* 
         Initial data read to be able to count CPU usage 
         after first iteration of infinite loop 

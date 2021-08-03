@@ -118,8 +118,12 @@ static void reader_file_cleanup(void* arg) {
     if (!arg)
         return;
 
-    FILE* file_to_clean = (FILE*) arg;
-    fclose(file_to_clean);
+    FILE** file_to_clean = (FILE**) arg;
+    
+    if (!*file_to_clean)
+        return;
+
+    fclose(*file_to_clean);
 }
 
 void* statt_reader(void* arg) {
@@ -129,7 +133,7 @@ void* statt_reader(void* arg) {
     char* reader_file_buf = 0;
 
     pthread_cleanup_push(reader_buffer_cleanup, (void*) &reader_file_buf)
-    pthread_cleanup_push(reader_file_cleanup, (void*) stat_f)
+    pthread_cleanup_push(reader_file_cleanup, (void*) &stat_f)
     
     reader_args* r_args = *(reader_args**)arg;
 

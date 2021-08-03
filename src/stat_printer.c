@@ -62,11 +62,6 @@ static void printer_buffer_cleanup(void* arg) {
 }
 
 void* statt_printer(void* arg) {
-    char* calc_stats = 0;
-    int core_counter = 0;
-    size_t data_len = 0;
-
-    pthread_cleanup_push(printer_buffer_cleanup, (void*) &calc_stats)
 
     printer_args* p_args = *(printer_args**)arg;
     
@@ -79,6 +74,12 @@ void* statt_printer(void* arg) {
     SRING_APPEND_STR(sr_for_logger, "Printer thread initialized, entering main loop.");
     CLEAR_STDOUT();
     
+    char* calc_stats = 0;
+    unsigned short core_counter = 0;
+    size_t data_len = 0;
+
+    pthread_cleanup_push(printer_buffer_cleanup, (void*) &calc_stats)
+
     while(!(*done)) {
         tcheck_printer_activate(p_args->check_vars);
         SRING_POP_STR(sr_from_analyzer, calc_stats);
